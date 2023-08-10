@@ -6,6 +6,7 @@ import hashlib,sys
 import datetime
 import random
 import pymongo
+import math
 
 
 # Process 1
@@ -49,7 +50,9 @@ def process1():
                         "password": "0a6ed5e0e36f90cd7e4a324124f55617bf342b00931e2ab03eb85d633aeac333",
                         "results": False,
                         "voting": False,
-                        "role": "admin"
+                        "role": "admin",
+                        "won": "",
+                        "won_cid": 0
                     }
                 ]
                 admin_collection = db['admin']
@@ -95,6 +98,10 @@ def process1():
 
         while True:
 
+            # Sending response
+            def send_message(message):
+                ssl_conn.sendall(message.encode())
+
             with open("symmetric.key", "rb") as f:
                 symmetric_key = f.read()
 
@@ -134,44 +141,107 @@ def process1():
             # Function for client registration
             def client_register():
                         
-                        while True:
+                while True:
 
-                             # Receive and capitalize the user's name from the client to match data in collection
-                            name = ssl_conn.recv(1024).decode().capitalize()
-                            if not voters_collection.find_one({"name": name}) and name != "Admin":
-                                ssl_conn.sendall("OK".encode()) 
-                            else:
-                                ssl_conn.sendall("Username already exists".encode())
-                                continue
-                            break
+                    # Receive and capitalize the user's name from the client to match data in collection
+                    name = ssl_conn.recv(1024).decode().capitalize()
+                    if not voters_collection.find_one({"name": name}) and name != "Admin":
+                        send_message("OK")              
+                    else:
+                        send_message("Username already exists")
+                        continue
+                    break
 
-                        # Receive registration details from the client
-                        message = ssl_conn.recv(1024).decode().strip()
-                        method, name, password = message.split(",")
-                        while True:
+                # Receive registration details from the client
+                message = ssl_conn.recv(1024).decode().strip()
+                method, name, password = message.split(",")
+                while True:
 
-                            # Generate a random registration number within a specified range
-                            regno = random.randint(100000, 999999)
-                            if voters_collection.find_one({"regno": regno}):
-                                continue
-                            break
-                        
-                        # Hash the provided password with the symmetric key
-                        hash_password = hashlib.sha256(symmetric_key + bytes(password, 'utf-8')).hexdigest()
+                    # Generate a random registration number within a specified range
+                    regno = random.randint(100000, 999999)
+                    if voters_collection.find_one({"regno": regno}):
+                        continue
+                    break
+                
+                # Hash the provided password with the symmetric key
+                hash_password = hashlib.sha256(symmetric_key + bytes(password, 'utf-8')).hexdigest()
 
-                        # Create voter data for insertion into the voters collection
-                        voter_data = {
-                                        "name": name.capitalize(),
-                                        "regno": regno,
-                                        "password": hash_password,
-                                        "role":"voter"
-                                    }
-                        voters_collection.insert_one(voter_data)
-                        response = "OK"
-                        
-                        # Send response and registration number to the client
-                        connection = f"{response},{regno}".encode()
-                        ssl_conn.sendall(connection)
+                # Create voter data for insertion into the voters collection
+                voter_data = {
+                                "name": name.capitalize(),
+                                "regno": regno,
+                                "password": hash_password,
+                                "role":"voter"
+                            }
+                voters_collection.insert_one(voter_data)
+                response = "OK"
+                
+                # Send response and registration number to the client
+                connection = f"{response},{regno}".encode()
+                ssl_conn.sendall(connection)
+
+            
+
+            admindata = admin_collection.find_one({"name": "Admin"})
+
+            # Function to check if voting is enabled
+            def voting_enabled():
+                
+                if admindata["voting"] == False:
+                    message = "Voting not started yet."
+                else:
+                    message =  "Voting enabled"
+                return message
+            
+            # Function to check if candidates are present
+            def candidates_present():
+
+                if results_collection.count_documents({}) == 0:
+                    message = "No candidates present. Please add a candidate first."
+                else:
+                    message =  "candidates present."
+                return message
+            
+            # Function to check if voters are present
+            def voters_present():
+
+                if voters_collection.count_documents({}) == 0:
+                    message = "No voters registered yet."
+                else:
+                    message = "voters registered."
+                return message
+            
+            # Function to check if atleast one vote is casted
+            def votes_casted():
+                if history_collection.count_documents({}) == 0:
+                    message = "No one voted yet."
+                else:
+                    message = "voters voted."
+                return message
+            
+            # Function to check if voting is closed
+            def voting_closed():
+                if admindata["results"] == True:
+                    message = "Voting closed."
+                else:
+                    message = "Voting not closed"
+                return message
+            
+            # Function to check if results are declared
+            def results_declared():
+                if admindata["results"] != True:
+                    message = "not available"
+                else:
+                    message = "available"
+                return message
+            
+            def check_personal_history(currentuser):
+                if not history_collection.find_one({"name": currentuser}):
+                    message = "You have not voted yet."
+                else:
+                    historyData = history_collection.find_one({"name": currentuser})
+                    message = "You have already voted at " + historyData["voted_datetime"]
+                return message
             
             try:
 
@@ -186,18 +256,18 @@ def process1():
                     data = ssl_conn.recv(1024).decode()
 
                     # Handle different client requests
-                    if data == '1':
+                    if data == 'login':
 
                         # Option to login goes down
                         pass
 
-                    elif data == '2':
+                    elif data == 'register':
 
                         # Option to register
                         client_register()
                         continue
 
-                    elif data == "Exit":
+                    elif data == "exit":
 
                         # Client chose to exit
                         print("System disconnected")
@@ -220,9 +290,9 @@ def process1():
                     
                     # Handle invalid authentication
                     if result == "incorrect regno" or result == "incorrect password":
-                        text = "0"
+                        text = "Authentication failed."
                         print("Authentication failed.")
-                        ssl_conn.sendall(text.encode())
+                        send_message(text)
                         continue
 
                     else:
@@ -231,7 +301,7 @@ def process1():
                             print("Admin logged in")
                         else:
                             print("Client logged in")
-                        ssl_conn.sendall(text.encode())
+                        send_message(text)
 
                     while True:
 
@@ -245,44 +315,45 @@ def process1():
                         if currentuser == "Admin":
 
                             # Handle admin-specific requests
-                            if data == "1":
+                            if data == "check votes":
 
                                 # Request: Check votes registered
-
+                                
                                 # Check if voting has not yet started
-                                if admindata["voting"] == False:
-                                    ssl_conn.sendall("\nVoting not started yet.".encode())
+                                message = voting_enabled()
+                                if message != "Voting enabled":
+                                    send_message(message)
                                     continue
-
+                                
                                 # Check if there are no candidates present
-                                if results_collection.count_documents({}) == 0:
-                                    ssl_conn.sendall("No candidates present. Please add a candidate first.".encode())
+                                message = candidates_present()
+                                if message != "candidates present.":
+                                    send_message(message)
                                     continue
-
-                                # Count the total number of registered voters
-                                voters = voters_collection.count_documents({})
 
                                 # Check if there are no voters registered
-                                if voters == 0:
-                                    message = "No voters registered yet."
+                                message = voters_present()
+                                if message != "voters registered.":
+                                    pass
                                 else:
                                     totalVotesRegistered = history_collection.count_documents({})
-                                    message = str(totalVotesRegistered) + " out of " + str(voters) + " votes registered."
-                                ssl_conn.sendall(message.encode())
+                                    message = str(totalVotesRegistered) + " out of " + str(voters_collection.count_documents({})) + " votes registered."
+                                send_message(message)
 
-
-                            elif data == "2":
+                            elif data == "declare results":
 
                                 # Request: Declare results
 
                                 # Check if voting has not yet started
-                                if admindata["voting"] == False:
-                                    ssl_conn.sendall("\nVoting not started yet.".encode())
+                                message = voting_enabled()
+                                if message != "Voting enabled":
+                                    send_message(message)
                                     continue
                                 
                                 # Check if there are no candidates present
-                                if results_collection.count_documents({}) == 0:
-                                    ssl_conn.sendall("No candidates present. Please add a candidate first.".encode())
+                                message = candidates_present()
+                                if message != "candidates present.":
+                                    send_message(message)
                                     continue
                                 
                                 # Create an index for sorting candidates by votes in descending order to get highest votes
@@ -303,43 +374,53 @@ def process1():
 
                                 # Check if results have already been declared
                                 if admindata["results"] == True:
-                                    message = "Results already declared." + "Won: " + winner["name"] + " (" + winner["cid"] + ")" + "\n"
+                                    message = "Results already declared. " + "Won: " + admindata["won"]  + " (" + str(admindata["won_cid"]) + ")" + "\n"
                                 else:
 
                                     # Check if no votes have been cast yet
-                                    if history_collection.count_documents({}) == 0:
-                                        ssl_conn.sendall("No one voted yet.".encode())
+                                    message = votes_casted()
+                                    if message == "No one voted yet.":
+                                        send_message(message)
                                         continue
 
                                     # Send confirmation request to declare results
-                                    ssl_conn.sendall("Please confirm to declare: \n1. Yes\n2. No\n".encode())
+                                    send_message("Please confirm to declare: \n1. Yes\n2. No\n")
                                     response = ssl_conn.recv(1024).decode()
                                     if response != "1":
-                                        ssl_conn.sendall("Not declared.".encode())
+                                        send_message("Not declared.")
                                         continue
 
                                     # Update the admin data to indicate results declaration
                                     admindata["results"] = True
-                                    admin_collection.update_one({"_id": admindata["_id"]}, {"$set": {"results": admindata["results"]}})
+                                    admin_collection.update_one(
+                                        {"_id": admindata["_id"]},
+                                        {
+                                            "$set": {
+                                                "results": admindata["results"],
+                                                "won": highest_votes_document["name"],
+                                                "won_cid": int(highest_votes_document["cid"])
+                                            }
+                                        }
+                                    )
                                     message = "Results declared.\n" + "Won: " + highest_votes_document["name"] + " (" + highest_votes_document["cid"] + ")" + "\n"
-                                ssl_conn.sendall(message.encode())
+                                send_message(message)
 
 
-                            elif data == "3":
+                            elif data == "add new candidate":
 
                                 # Request: Add candidate
 
                                 # Check if results are already declared
                                 if admindata["results"] == True:
-                                    ssl_conn.sendall("Voting has concluded, cannot add a candidate now.".encode())
+                                    send_message("Voting has concluded, cannot add a candidate now.")
                                     continue
 
                                 # Check if voting has already started
                                 if admindata["voting"] == True:
-                                    ssl_conn.sendall("Voting already started, cannot add a candidate now.".encode())
+                                    send_message("Voting already started, cannot add a candidate now.")
                                     continue
                                 else:
-                                    ssl_conn.sendall("OK".encode())
+                                    send_message("OK")
 
                                 # Receive the candidate details from the admin
                                 message = ssl_conn.recv(1024).decode().strip()
@@ -358,21 +439,21 @@ def process1():
                                     ]
                                     results_collection.insert_many(resultsHardData)
                                     message = "Successfully added new candidate"
-                                    ssl_conn.sendall(message.encode())
+                                    send_message(message)
                                 else:
 
                                     # If candidate with given CID already exists, send a message indicating that
                                     message = "Candidate with given CID already exists."
-                                    ssl_conn.sendall(message.encode())
+                                    send_message(message)
 
 
-                            elif data == "4":
+                            elif data == "start election":
 
                                 # Request: Start Election
 
                                 # Check if results are already declared
                                 if admindata["results"] == True:
-                                    ssl_conn.sendall("Voting has concluded.".encode())
+                                    send_message("Voting has concluded.")
                                     continue
 
                                 # Check if voting has already started
@@ -382,24 +463,24 @@ def process1():
                                     
                                     # Check if there are no candidates present
                                     if results_collection.count_documents({}) == 0:
-                                        ssl_conn.sendall("No candidates present. Please add a candidate first.".encode())
+                                        send_message("No candidates present. Please add a candidate first.")
                                         continue
-                                    ssl_conn.sendall("Please confirm to start: \n1. Yes\n2. No\n".encode())
+                                    send_message("Please confirm to start: \n1. Yes\n2. No\n")
                                     response = ssl_conn.recv(1024).decode()
 
                                     # Check if the admin confirms to start the election
                                     if response != "1":
-                                        ssl_conn.sendall("Not started.".encode())
+                                        send_message("Not started.")
                                         continue
 
                                     # Update the admin data to indicate that voting has started
                                     admindata["voting"] = True
                                     admin_collection.update_one({"_id": admindata["_id"]}, {"$set": {"voting": admindata["voting"]}})
                                     message = "Voting started."
-                                ssl_conn.sendall(message.encode())
+                                send_message(message)
 
 
-                            elif data == "5":
+                            elif data == "sign out":
 
                                 # Request: Admin logout
                                 print("Admin logged out")
@@ -416,23 +497,25 @@ def process1():
                         else:
                             
                             # Handle user-specific requests
-                            if data == "1":
+                            if data == "vote":
                                 
                                 # Handle the case where the client wants to vote
 
                                 # Check if voting has not started yet
-                                if admindata["voting"] == False:
-                                    ssl_conn.send("1".encode())
+                                message = voting_enabled()
+                                if message != "Voting enabled":
+                                    send_message(message)
                                     continue
-                                
+
                                 # Check if results are already declared
-                                if admindata["results"] == True:
-                                    ssl_conn.send("2".encode())
+                                message = voting_closed()
+                                if message == "Voting closed.":
+                                    send_message(message)
                                     continue
                                 
                                 # Check if the client has already voted
                                 if history_collection.find_one({"name": currentuser}):
-                                    ssl_conn.sendall("0".encode())
+                                    send_message("already voted")
                                 
                                 else:
 
@@ -473,15 +556,15 @@ def process1():
                                         ssl_conn.send("Invalid candidate choice. Please choose a valid candidate.\n".encode())
 
 
-                            elif data == "2":
+                            elif data == "check results":
 
                                 # Handle the case where the client wants to view election results
-
+                                
                                 # Check if results are declared
-                                if admindata["results"] != True:
-                                    ssl_conn.send("0".encode())
+                                message = results_declared()
+                                if message != "available":
+                                    send_message(message)
                                 else:
-
                                     # Get the candidate with the highest votes
                                     results_collection.create_index([("votes", pymongo.DESCENDING)])
                                     highest_votes_document = results_collection.find_one({}, sort=[("votes", pymongo.DESCENDING)])
@@ -490,23 +573,19 @@ def process1():
                                     message = "Won: " + highest_votes_document["name"] + " (" + highest_votes_document["cid"] + ")" + "\n"
                                     ssl_conn.send(message.encode())
 
-
-                            elif data == "3":
+                            elif data == "vote history":
 
                                 # Handle the case where the client wants to view their voting history
 
                                 # Check if the client has not voted yet
-                                if not history_collection.find_one({"name": currentuser}):
-                                    yourhistory = "You have not voted yet."
+                                message = check_personal_history(currentuser)
+                                if message == "You have not voted yet.":
+                                    pass
                                 else:
-
-                                    # Get the client's voting history
-                                    historyData = history_collection.find_one({"name": currentuser})
-                                    yourhistory = "You have already voted at " + historyData["voted_datetime"]
-
-                                ssl_conn.send(yourhistory.encode())
+                                    pass
+                                send_message(message)
                 
-                            elif data == "4":
+                            elif data == "User sign out":
 
                                 # Handle the case where the client wants to log out
                                 print("Client logged out")

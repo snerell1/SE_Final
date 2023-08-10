@@ -1,8 +1,6 @@
 import socket
 import ssl,sys
-
-
-
+import math
 
 def main():
 
@@ -100,7 +98,7 @@ def main():
         
         if inputVal == "1":
             # User chose to login
-            ssl_sock.sendall(inputVal.encode())
+            ssl_sock.sendall("login".encode())
             
             while True:
                 
@@ -133,7 +131,7 @@ def main():
                         if choice == "1":
 
                             # Option to check registered votes
-                            ssl_sock.sendall("1".encode())
+                            ssl_sock.sendall("check votes".encode())
                             response = ssl_sock.recv(1024).decode()
                             print(response)
                             continue
@@ -141,7 +139,7 @@ def main():
                         elif choice == "2":
 
                             # Option to declare results
-                            ssl_sock.sendall("2".encode())
+                            ssl_sock.sendall("declare results".encode())
                             response = ssl_sock.recv(1024).decode()
                             if response == "Please confirm to declare: \n1. Yes\n2. No\n":
                                 while True:
@@ -161,7 +159,7 @@ def main():
                         elif choice == "3":
 
                             # Option to add new candidate
-                            ssl_sock.sendall("3".encode())
+                            ssl_sock.sendall("add new candidate".encode())
                             response = ssl_sock.recv(1024).decode()
                             if response != "OK":
                                 print(response)
@@ -178,7 +176,7 @@ def main():
                         elif choice == "4":
 
                             # Option to start election
-                            ssl_sock.sendall("4".encode())
+                            ssl_sock.sendall("start election".encode())
                             response = ssl_sock.recv(1024).decode()
                             if response == "Please confirm to start: \n1. Yes\n2. No\n":
                                 while True:
@@ -199,7 +197,7 @@ def main():
                         elif choice == "5":
 
                             # Admin sign out
-                            ssl_sock.sendall("5".encode())
+                            ssl_sock.sendall("sign out".encode())
                             print("Goodbye.")
                             regOrLogin()
                         else:
@@ -220,16 +218,16 @@ def main():
                         if choice == "1":
 
                             # Option to vote
-                            ssl_sock.sendall("1".encode())
+                            ssl_sock.sendall("vote".encode())
                             response = ssl_sock.recv(1024).decode()
-                            if response == "0":
+                            if response == "already voted":
                                 print("\nYou have already voted.\n")
                                 continue
-                            elif response == "1":
-                                print("\nVoting not started yet.\n")
+                            elif response == "Voting not started yet.":
+                                print(f"\n{response}\n")
                                 continue
-                            elif response == "2":
-                                print("\nVoting closed.\n")
+                            elif response == "Voting closed":
+                                print(f"\n{response}\n")
                                 continue
                             else:
                                 while True:
@@ -250,9 +248,9 @@ def main():
                         elif choice == "2":
                             
                             # Option to check results
-                            ssl_sock.sendall("2".encode())
+                            ssl_sock.sendall("check results".encode())
                             response = ssl_sock.recv(1024).decode()
-                            if response != "0":
+                            if response != "not available":
                                 print("\n" + response + "\n")
                             else:
                                 print("\nThe result is not available yet.\n")
@@ -262,7 +260,7 @@ def main():
                         elif choice == "3":
 
                             # Option to check user's vote history
-                            ssl_sock.sendall("3".encode())
+                            ssl_sock.sendall("vote history".encode())
                             response = ssl_sock.recv(1024).decode()
                             print("\n" + response + "\n")
                             continue
@@ -270,7 +268,7 @@ def main():
                         elif choice == "4":
 
                             # User sign out
-                            ssl_sock.sendall("4".encode())
+                            ssl_sock.sendall("User sign out".encode())
                             print("Goodbye.\n")
                             regOrLogin()
 
@@ -280,13 +278,13 @@ def main():
         elif inputVal == "2":
             
             # Option to register as new user
-            ssl_sock.sendall(inputVal.encode())
+            ssl_sock.sendall("register".encode())
             client_register()
             
         elif inputVal == "3":
 
             # Option to exit voting system
-            ssl_sock.sendall("Exit".encode())
+            ssl_sock.sendall("exit".encode())
             ssl_sock.close()
             exit()
 
