@@ -1,11 +1,16 @@
+"""
+This module contains test cases for client functionality.
+"""
 import socket
 import ssl
-import sys
 
 TEST_SERVER_DOMAIN = socket.gethostname()
 TEST_SERVER_PORT = 1026
 
 def create_socket_connection():
+    """
+    ssl_sock (ssl.SSLSocket): SSL socket for communication.
+    """
     context = ssl.create_default_context()
     context.load_verify_locations("server.pem")
 
@@ -16,6 +21,11 @@ def create_socket_connection():
 # assert response is None
 
 def test_user_register(ssl_sock,name,password):
+    """
+    Test user registration.
+    name (str): User's name.
+    password (str): User's password.
+    """
     ssl_sock.sendall('register'.encode())
     ssl_sock.sendall(name.encode())
     response = ssl_sock.recv(1024).decode()
@@ -29,6 +39,12 @@ def test_user_register(ssl_sock,name,password):
 
 
 def test_user_login(ssl_sock,name,voter_id,password):
+    """
+    Test user login.
+    name (str): User's name.
+    voter_id: User's voter identifier.
+    password (str): User's password.
+    """
     ssl_sock.sendall('login'.encode())
     ssl_sock.sendall(f'{name},{voter_id},{password}'.encode())
     response = ssl_sock.recv(1024).decode()
@@ -36,6 +52,10 @@ def test_user_login(ssl_sock,name,voter_id,password):
     print("test_user_login is success.")
 
 def test_user_selection(ssl_sock,voting):
+    """
+    Test user selection.
+    voting: voting not started/during voting/after voting closed
+    """
     if voting == "voting not started":
         ssl_sock.sendall('vote'.encode())
         response = ssl_sock.recv(1024).decode()
@@ -81,6 +101,9 @@ def test_user_selection(ssl_sock,voting):
 
 
 def test_admin_login(ssl_sock):
+    """
+    Test admin login.
+    """
     ssl_sock.sendall('login'.encode())
     # response = ssl_sock.recv(1024).decode()
     ssl_sock.sendall('Admin,0000000,1234'.encode())
@@ -89,6 +112,10 @@ def test_admin_login(ssl_sock):
     print("test_admin_login is success.")
 
 def test_admin_selecion(ssl_sock,voting):
+    """
+    Test admin selection.
+    voting: voting not started/during voting/after voting closed
+    """
     if voting == "voting not started":
         ssl_sock.sendall('check votes'.encode())
         response = ssl_sock.recv(1024).decode()
@@ -150,15 +177,21 @@ def test_admin_selecion(ssl_sock,voting):
         pass
 
 def test_exit(ssl_sock):
+    """
+    Client exit from connection.
+    """
     ssl_sock.sendall('exit'.encode())
     print("test_exit is success.")
 
 def main():
+    """
+    Contains all test function calls.
+    """
     ssl_sock = create_socket_connection()
 
     # New user registration
     voter_id = test_user_register(ssl_sock,"alice","1234")
-    
+
     # User login and selection when voting not started
     test_user_login(ssl_sock,"alice",voter_id,"1234")
     test_user_selection(ssl_sock,"voting not started")
@@ -190,13 +223,6 @@ def main():
 
     # Exit case
     test_exit(ssl_sock)
-
-
-
-
-
-
-
 
 if __name__ == '__main__':
     main()
