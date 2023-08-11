@@ -36,20 +36,20 @@ def process1():
 
             # Initialize data for specific collections
             if collection == "results":
-                result_hard_data = [
-                    {
-                        "name": "Chris",
-                        "cid": "1000",
-                        "votes": 0,
-                    },
-                    {
-                        "name": "Linda",
-                        "cid": "1001",
-                        "votes": 0,
-                    },
-                ]
+                # result_hard_data = [
+                #     {
+                #         "name": "Chris",
+                #         "cid": "1000",
+                #         "votes": 0,
+                #     },
+                #     {
+                #         "name": "Linda",
+                #         "cid": "1001",
+                #         "votes": 0,
+                #     },
+                # ]
                 results_collection = database["results"]
-                results_collection.insert_many(result_hard_data)
+                # results_collection.insert_many(result_hard_data)
 
             elif collection == "admin":
                 admin_hard_data = [

@@ -66,7 +66,7 @@ def main():
 
     def client_register():
         name = input("Enter your name: ").lower()
-        if len(name) <= 4 or len(name) >= 12:
+        if len(name) < 4 or len(name) > 12:
             print("Username must be atleast 4 characters and atmost 12 characters")
             client_register()
 
@@ -84,8 +84,7 @@ def main():
                 continue
             break
 
-        method = "register"
-        reg_details = f"{method},{name},{password}".encode()
+        reg_details = f"{name},{password}".encode()
         ssl_sock.sendall(reg_details)
 
         response = ssl_sock.recv(1024).decode()
@@ -235,7 +234,7 @@ def main():
                             if response == "Voting not started yet.":
                                 print(f"\n{response}\n")
                                 continue
-                            if response == "Voting closed":
+                            if response == "Voting closed.":
                                 print(f"\n{response}\n")
                                 continue
                             while True:
