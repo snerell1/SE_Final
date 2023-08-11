@@ -25,6 +25,20 @@ You need to start the server first and keep it running, once server is started a
 
 Without server running, client cannot access the server data, it throws an error.
 
+Before running the code, If you want to test the code using test file provided, you should run the server for the first time then run the test code from client directory (no need to enter port number for client, but servermust be started with port number 1026).
+
+After server is running, you should open a new terminal and navigate to client directory.
+
+Once you are in client directory, run this command:
+
+py smoke_test_client.py
+
+If all test cases passes, there wont be any assertion errors and you can see each function is success in your terminal.
+
+When I said "you should run the server for the first time", it means you will see, only Admin data in admin collection and all the collections will be empty. This happens only when you are running the server for first time.
+
+Running code without test file:
+
 To initiate the server:
 Navigate to the server directory and execute the following command:
 
@@ -45,4 +59,3 @@ py cli.py <hostname> 1026
 -> "<hostname>" signifies your host, where the server is operational. If the server is remote, you can designate it as remote01 to remote07 (or more).
 
 for running locally, you can ascertain your hostname by entering "hostname" in your terminal.
-
